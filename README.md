@@ -13,7 +13,7 @@ It analyzes the internal structure of the ensemble by examining the eigenvalues 
 
 ## Benefits
 
-- Makes Gradient Boosting models more **robust** and **interpretable**.
+- Makes Ensemble Tree models more **robust** and **interpretable**.
 - Detects overfitting **early**, even when standard train/test metrics look fine.
 - Helps tune model complexity (depth, number of trees) with a **spectral perspective**.
 
