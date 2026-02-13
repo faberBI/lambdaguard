@@ -165,172 +165,146 @@ for idx, row in df.iterrows():
 
 
 
+
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import KFold
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import KFold, train_test_split
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
-import matplotlib.pyplot as plt
+from scipy import stats
 
-# -----------------------------
-# Funzione per costruire H
-# -----------------------------
+# ===============================
+# DATASET: DIABETES
+# ===============================
+X, y = load_diabetes(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+# ===============================
+# COSTRUZIONE MATRICE H
+# ===============================
 def build_H(model, X):
-    """
-    Costruisce la matrice H delle predizioni di ogni albero sul dataset X.
-    Ritorna H di dimensione n x T (n = #campioni, T = #alberi)
-    """
-    n = X.shape[0]
-    T = len(model.estimators_)
-    H = np.zeros((n, T))
-    for t, est in enumerate(model.estimators_):
-        # GradientBoostingRegressor ha shape (n_estimators, 1) per regressione
-        H[:, t] = est[0].predict(X)
+    trees = model.estimators_.ravel()
+    H = np.column_stack([t.predict(X) for t in trees])
+    H -= H.mean(axis=0)
     return H
 
-# -----------------------------
-# Nuova funzione: target projection
-# -----------------------------
-def spectral_target_alignment(H_folds, y_folds, spike_percent=0.15):
-    """
-    Analizza dove il target cade nello spettro degli alberi.
-    Restituisce:
-    - alignment_ratio = bulk_energy / signal_energy
-    - bulk_energy_mean
-    - signal_energy_mean
-    - lambda_edge medio
-    """
-    bulk_energy_all = []
-    signal_energy_all = []
-    lambda_edges = []
+# ===============================
+# ANALISI SPETTRALE
+# ===============================
+def spectral_analysis(H_folds):
+    lambda_ratio_list = []
+    eff_rank_list = []
+    alpha_list = []
 
-    for H, y in zip(H_folds, y_folds):
+    for H in H_folds:
         n, T = H.shape
-
-        # Gram matrix
         G = (H.T @ H) / n
+        eigvals = np.sort(np.linalg.eigvalsh(G))
 
-        # autovalori e autovettori
-        eigvals, eigvecs = np.linalg.eigh(G)
+        # ---- spike strength ----
+        bulk = eigvals[: int(0.85 * T)]
+        lambda_ratio = eigvals[-1] / (np.mean(bulk) + 1e-12)
+        lambda_ratio_list.append(lambda_ratio)
 
-        # ordina crescente
-        idx = np.argsort(eigvals)
-        eigvals = eigvals[idx]
-        eigvecs = eigvecs[:, idx]
+        # ---- effective rank ----
+        p = eigvals / np.sum(eigvals)
+        eff_rank = np.exp(-np.sum(p * np.log(p + 1e-12)))
+        eff_rank_list.append(eff_rank)
 
-        # ---- proiezione del target ----
-        z = (H.T @ y) / n
-        c = eigvecs.T @ z
-        energy = c**2
+        # ---- power-law alpha ----
+        tail = eigvals[int(0.7 * T):]
+        tail = tail[tail > 1e-12]
 
-        # ---- stima bulk edge ----
-        n_spike = max(1, int(len(eigvals) * spike_percent))
-        bulk_eigvals = eigvals[:-n_spike]
-        lambda_edge = np.median(bulk_eigvals) + 3*np.std(bulk_eigvals)
-        lambda_edges.append(lambda_edge)
+        log_l = np.log(tail)
+        hist, bins = np.histogram(log_l, bins=20, density=True)
+        centers = 0.5 * (bins[:-1] + bins[1:])
+        mask = hist > 0
 
-        # separazione bulk / segnale
-        bulk_mask = eigvals <= lambda_edge
-        signal_mask = eigvals > lambda_edge
+        slope, _, _, _, _ = stats.linregress(
+            centers[mask], np.log(hist[mask])
+        )
+        alpha_list.append(-slope)
 
-        bulk_energy = np.sum(energy[bulk_mask])
-        signal_energy = np.sum(energy[signal_mask])
+    return {
+        "lambda_ratio_norm": np.mean(lambda_ratio_list),
+        "eff_rank_mean": np.mean(eff_rank_list),
+        "alpha_mean": np.mean(alpha_list)
+    }
 
-        bulk_energy_all.append(bulk_energy)
-        signal_energy_all.append(signal_energy)
-
-    bulk_energy_mean = np.mean(bulk_energy_all)
-    signal_energy_mean = np.mean(signal_energy_all)
-
-    alignment_ratio = bulk_energy_mean / (signal_energy_mean + 1e-12)
-
-    return alignment_ratio, bulk_energy_mean, signal_energy_mean, np.mean(lambda_edges)
-
-# -----------------------------
+# ===============================
 # ESPERIMENTO
-# -----------------------------
-# Parametri da testare
-max_depth_list = [2, 3, 5, 10, 15, 20]
-trees_list = [5, 10, 25, 50, 100, 300, 500]
-
-results = []
+# ===============================
+max_depth_list = [2, 3, 5, 10, 20, 25]
+trees_list = [10, 20, 50, 100, 300, 500, 1000]
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
-for max_depth in max_depth_list:
+results = []
+
+for depth in max_depth_list:
     for n_trees in trees_list:
 
-        # Modello completo
-        model = GradientBoostingRegressor(
-            n_estimators=n_trees,
-            max_depth=max_depth,
-            learning_rate=0.05,
-            subsample=0.8,
-            random_state=42
-        )
-        model.fit(X_train, y_train)
-
-        # Costruzione H e y per i fold
         H_folds = []
-        y_folds = []
 
-        for train_idx, val_idx in kf.split(X_train):
-            X_fold = X_train[train_idx]
-            y_fold = y_train[train_idx]
+        for tr_idx, _ in kf.split(X_train):
+            X_fold = X_train[tr_idx]
+            y_fold = y_train[tr_idx]
 
-            fold_model = GradientBoostingRegressor(
+            model = GradientBoostingRegressor(
                 n_estimators=n_trees,
-                max_depth=max_depth,
+                max_depth=depth,
                 learning_rate=0.05,
                 subsample=0.8,
                 random_state=42
             )
-            fold_model.fit(X_fold, y_fold)
+            model.fit(X_fold, y_fold)
+            H_folds.append(build_H(model, X_fold))
 
-            H_folds.append(build_H(fold_model, X_fold))
-            y_folds.append(y_fold)
+        stats_spec = spectral_analysis(H_folds)
 
-        # -----------------------------
-        # Calcolo statistica di overfitting
-        # -----------------------------
-        alignment_ratio, bulk_E, signal_E, lambda_edge = spectral_target_alignment(H_folds, y_folds)
+        # ===============================
+        # REGOLA DI OVERFITTING (SOLO SPETTRALE)
+        # ===============================
+        overfitting = (
+            stats_spec["lambda_ratio_norm"] > 3.0 and
+            stats_spec["alpha_mean"] > 0.15 and
+            stats_spec["eff_rank_mean"] / n_trees < 0.3
+        )
 
+        # ===============================
         # RMSE train/test
+        # ===============================
         train_rmse = mean_squared_error(y_train, model.predict(X_train))
         test_rmse = mean_squared_error(y_test, model.predict(X_test))
 
-        # Decisione di overfitting
-        if alignment_ratio > 1.5:
-            spectral_status = "⚠️ OVERFITTING (target in bulk)"
-        else:
-            spectral_status = "✅ GENERALIZING (target in signal)"
-
         results.append([
-            max_depth, n_trees, round(train_rmse,4), round(test_rmse,4),
-            round(bulk_E,4), round(signal_E,4), round(lambda_edge,4),
-            round(alignment_ratio,3), spectral_status
+            depth,
+            n_trees,
+            round(stats_spec["lambda_ratio_norm"], 3),
+            round(stats_spec["alpha_mean"], 3),
+            round(stats_spec["eff_rank_mean"] / n_trees, 3),
+            "OVERFITTING" if overfitting else "OK",
+            round(train_rmse, 3),
+            round(test_rmse, 3)
         ])
 
-# -----------------------------
-# TABELLONE RISULTATI
-# -----------------------------
-df = pd.DataFrame(results, columns=[
-    "max_depth", "trees", "train_rmse", "test_rmse",
-    "bulk_energy", "signal_energy", "lambda_edge",
-    "alignment_ratio", "spectral_status"
-])
+# ===============================
+# RISULTATI
+# ===============================
+df = pd.DataFrame(
+    results,
+    columns=[
+        "max_depth",
+        "n_trees",
+        "lambda_ratio_norm",
+        "alpha_mean",
+        "eff_rank_ratio",
+        "spectral_status",
+        "train_RMSE",
+        "test_RMSE"
+    ]
+)
+
 print(df)
-
-# -----------------------------
-# GRAFICO alignment_ratio vs #trees
-# -----------------------------
-plt.figure(figsize=(10,5))
-for depth in max_depth_list:
-    subset = df[df['max_depth']==depth]
-    plt.plot(subset['trees'], subset['alignment_ratio'], marker='o', label=f"max_depth={depth}")
-
-plt.axhline(1.5, color='red', linestyle='--', label="Overfitting threshold")
-plt.xlabel("Number of Trees")
-plt.ylabel("Alignment Ratio (bulk/signal)")
-plt.title("Overfitting Detection via Target Projection in Spectrum")
-plt.legend()
-plt.show()
