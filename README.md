@@ -111,6 +111,7 @@ Essentially, λ-Guard generalizes the concept of the hat matrix \(H\) to Gradien
 
 ### References / Inspirations
 
-- Hat matrix \(H\) in linear regression  
+- λ-Guard derived from the geometric structure of the boosting hat-like matrix (Z / pseudo-residual projection)
 - Gradient Boosting as a functional additive model  
 - Generalization Index (GI) framework
+
