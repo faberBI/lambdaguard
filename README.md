@@ -95,6 +95,7 @@ Combines structural complexity and stability:
 \lambda_{\text{norm}} = \frac{\lambda - \min(\lambda)}{\max(\lambda) - \min(\lambda)}
 \]
 
+<img src="doc/Norm OFI California.png" alt="RMSE Train/Testt gap vs Lambda-Guard" width="600"/>
 ---
 
 ## Geometric Interpretation
