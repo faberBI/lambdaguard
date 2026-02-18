@@ -198,3 +198,180 @@ def plot_all(df, dataset_name):
 diab = load_diabetes()
 df_diab = run_experiment(diab.data, diab.target, "Diabetes")
 plot_all(df_diab, "Diabetes")
+
+
+import numpy as np
+import pandas as pd
+
+df = pd.read_excel('/content/results_model_lambda_guard.xlsx')
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def detect_structural_overfitting_cusum_robust(
+    df,
+    model_name,
+    complexity_metric="combined",
+    lambda_col="OFI_norm",
+    alignment_col="A",
+    smooth_window=3,
+    cusum_threshold_factor=1.5,
+):
+    """
+    Detect structural overfitting using second derivative + CUSUM robust detection.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Experiment results.
+    model_name : str
+        Model to analyze.
+    complexity_metric : str
+        Column name or 'combined' (n_estimators*max_depth).
+    lambda_col : str
+        Column with λ values (OFI_norm).
+    alignment_col : str
+        Column with alignment (A).
+    smooth_window : int
+        Rolling window for smoothing derivatives.
+    cusum_threshold_factor : float
+        Multiplier for standard deviation to define CUSUM threshold.
+
+    Returns
+    -------
+    dict with change point and plot.
+    """
+    df_model = df[df["model"] == model_name].copy()
+
+    # Complexity axis
+    if complexity_metric == "combined":
+        df_model["complexity"] = df_model["n_estimators"] * df_model["max_depth"]
+    else:
+        df_model["complexity"] = df_model[complexity_metric]
+
+    df_model = df_model.sort_values("complexity")
+    
+    lambdas = df_model[lambda_col].values
+    alignment = df_model[alignment_col].values
+    complexity = df_model["complexity"].values
+
+    # First derivative Δλ
+    delta_lambda = np.diff(lambdas)
+    delta_lambda = pd.Series(delta_lambda).rolling(smooth_window, min_periods=1).mean().values
+
+    # Second derivative Δ²λ
+    delta2_lambda = np.diff(delta_lambda)
+    delta2_lambda = pd.Series(delta2_lambda).rolling(smooth_window, min_periods=1).mean().values
+
+    # ---------------------------------------------------
+    # CUSUM cumulativo positivo
+    # ---------------------------------------------------
+    mean_d2 = np.mean(delta2_lambda)
+    std_d2 = np.std(delta2_lambda)
+
+    # zero-centered
+    centered_d2 = delta2_lambda - mean_d2
+
+    # CUSUM positivo
+    cusum = np.zeros_like(centered_d2)
+    for i in range(1, len(centered_d2)):
+        cusum[i] = max(0, cusum[i-1] + centered_d2[i])
+
+    # Threshold: mean + k*std
+    cusum_threshold = cusum_threshold_factor * std_d2
+
+    # Change point: first point where CUSUM exceeds threshold
+    change_index = None
+    delta_alignment = np.diff(alignment)
+    for i, val in enumerate(cusum):
+        align_flat = delta_alignment[i] < 0.01 if i < len(delta_alignment) else False
+        if val > cusum_threshold and align_flat:
+            change_index = i + 2  # shift due to double diff
+            break
+
+    # ---------------------------------------------------
+    # Plot
+    # ---------------------------------------------------
+    plt.figure(figsize=(10,6))
+    plt.plot(complexity, lambdas, '-o', label='λ (OFI_norm)')
+    plt.plot(complexity[1:], delta_lambda, '-s', label='Δλ')
+    plt.plot(complexity[2:], delta2_lambda, '-^', label='Δ²λ')
+    plt.plot(complexity[2:], cusum, '-x', label='CUSUM Δ²λ', alpha=0.7)
+    if change_index is not None:
+        plt.axvline(complexity[change_index], color='red', linestyle='--', label='Change Point')
+        plt.scatter(complexity[change_index], lambdas[change_index], color='red', s=100)
+    plt.xlabel("Complexity (n_estimators*max_depth)")
+    plt.ylabel("λ / Δλ / Δ²λ / CUSUM")
+    plt.title(f"Structural Overfitting Detection (CUSUM) - {model_name}")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    # ---------------------------------------------------
+    # Output
+    # ---------------------------------------------------
+    if change_index is None:
+        return {
+            "overfitting_detected": False,
+            "message": "No structural acceleration detected"
+        }
+
+    return {
+        "overfitting_detected": True,
+        "complexity_at_change": complexity[change_index],
+        "lambda_at_change": lambdas[change_index],
+        "delta_lambda_at_change": delta_lambda[change_index-1],
+        "delta2_lambda_at_change": delta2_lambda[change_index-2],
+        "cusum_at_change": cusum[change_index-2],
+        "cusum_threshold": cusum_threshold,
+        "complexity": complexity,
+        "lambdas": lambdas,
+        "delta_lambda": delta_lambda,
+        "delta2_lambda": delta2_lambda,
+        "cusum": cusum,
+        "change_index": change_index
+    }
+
+result = detect_structural_overfitting_cusum_robust(
+    df,
+    model_name="XGB",
+    complexity_metric="combined"
+)
+
+
+def gap_lambdaguard_test(df):
+
+  X = df['OFI_norm']
+  y = df['Gap']
+
+  # Aggiungo intercept
+  X_const = sm.add_constant(X)
+
+  # Fit regressione lineare
+  model = sm.OLS(y, X_const).fit()
+
+  # Risultati
+  print(model.summary())
+
+  # Coefficiente beta
+  beta = model.params['OFI_norm']
+  print(f"Coefficiente beta: {beta:.4f}")
+
+  # p-value del test H0: beta=0
+  pvalue = model.pvalues['OFI_norm']
+  print(f"P-value test beta=0: {pvalue:.4f}")
+
+  # Plot
+  plt.figure(figsize=(8,6))
+  plt.scatter(df['OFI_norm'], df_model['Gap'], alpha=0.6)
+  plt.plot(df['OFI_norm'], model.predict(X_const), color='red', linewidth=2)
+  plt.xlabel('Lambda')
+  plt.ylabel('RMSE gap (test - train)')
+  plt.title(f'Regression Gap RMSE vs Lambda - {df_model["model"].iloc[0]}')
+  plt.grid(True)
+  plt.show()
+
+
+
