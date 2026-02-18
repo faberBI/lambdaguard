@@ -84,16 +84,14 @@ S = \frac{1}{n} \sum_{i=1}^{n} \frac{|f(x_i) - f(x_i + \epsilon_i)|}{\sigma_f}, 
 
 Combines structural complexity and stability:
 
-\[
-\lambda = \frac{C}{A + C} \cdot S
-\]
+\[\lambda = \frac{C}{A + C} \cdot S\]
+
 <img src="doc/lambda_detection.png" alt="Lambda-Guard" width="600"/>
 - High λ → many independent regions that **do not contribute to alignment**, plus unstable predictions → overfitting  
 - Can also normalize to [0,1]:
 
-\[
-\lambda_{\text{norm}} = \frac{\lambda - \min(\lambda)}{\max(\lambda) - \min(\lambda)}
-\]
+\[\lambda_{\text{norm}} = \frac{\lambda - \min(\lambda)}{\max(\lambda) - \min(\lambda)}\]
+
 <img src="doc/regression_gap_lambda.png" alt="Relationship RMSE Train/Testt gap vs Lambda-Guard" width="600"/>
 <img src="doc/Norm OFI California.png" alt="RMSE Train/Testt gap vs Lambda-Guard" width="600"/>
 ---
