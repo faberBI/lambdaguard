@@ -374,4 +374,141 @@ def gap_lambdaguard_test(df):
   plt.show()
 
 
+# Overfitting test
+
+import numpy as np
+import pandas as pd
+from sklearn.datasets import load_diabetes
+from sklearn.ensemble import GradientBoostingRegressor
+import matplotlib.pyplot as plt
+
+# ============================================================
+# GENERALIZATION COMPONENTS
+# ============================================================
+def generalization_index(model, X, y):
+    preds = model.predict(X)
+    A = np.corrcoef(preds, y)[0, 1]
+    C = np.var(preds)
+    GI = A / C if C > 0 else 0
+    return GI, A, C
+
+def instability_index(model, X, noise_std=1e-3):
+    preds_clean = model.predict(X)
+    noise = np.random.normal(0, noise_std, X.shape)
+    X_noisy = X + noise
+    preds_noisy = model.predict(X_noisy)
+    instability = np.mean(np.abs(preds_clean - preds_noisy))
+    instability /= (np.std(preds_clean) + 1e-8)
+    return instability
+
+# ============================================================
+# Dataset diabetes
+# ============================================================
+data = load_diabetes()
+X, y = data.data, data.target
+
+# ============================================================
+# Funzione OFI / lambda usando instability_index
+# ============================================================
+def compute_OFI(model, X, y, n_perturb=20, noise_std=1e-3, random_state=None):
+    rng = np.random.default_rng(random_state)
+    model.fit(X, y)
+    S_list = []
+    for _ in range(n_perturb):
+        S_list.append(instability_index(model, X, noise_std=noise_std))
+    OFI = np.mean(S_list)
+    return OFI
+
+# ============================================================
+# Funzione lambda_z test con parametri casuali
+# ============================================================
+def lambda_z_test_random(model_class, base_params, X, y, param_ranges, n_random=50, n_perturb=20, noise_std=1e-3, random_state=42):
+    rng = np.random.default_rng(random_state)
+    
+    # Modello base
+    base_model = model_class(**base_params)
+    lambda_base = compute_OFI(base_model, X, y, n_perturb=n_perturb, noise_std=noise_std)
+    
+    # Modelli randomizzati
+    lambdas_random = []
+    for _ in range(n_random):
+        random_params = {
+            "n_estimators": rng.integers(*param_ranges["n_estimators"]),
+            "max_depth": rng.integers(*param_ranges["max_depth"]),
+            "min_samples_leaf": rng.integers(*param_ranges["min_samples_leaf"]),
+            "random_state": 42
+        }
+        model = model_class(**random_params)
+        lambdas_random.append(compute_OFI(model, X, y, n_perturb=n_perturb, noise_std=noise_std))
+    
+    lambdas_random = np.array(lambdas_random)
+    
+    # Calcolo z-score empirico
+    mu = np.mean(lambdas_random)
+    sigma = np.std(lambdas_random, ddof=1)
+    lambda_z = (lambda_base - mu) / sigma
+    
+    # p-value empirico (percentuale di modelli random >= base)
+    p_empirical = np.mean(lambdas_random >= lambda_base)
+    
+    # Threshold empirico (es. 95° percentile)
+    lambda_threshold = np.percentile(lambdas_random, 95)
+    overfitting_risk = lambda_base > lambda_threshold
+    
+    return lambda_base, lambda_z, p_empirical, lambdas_random, lambda_threshold, overfitting_risk
+
+# ============================================================
+# Parametri modello base e range casuali
+# ============================================================
+base_params = {
+    "n_estimators": 50,
+    "max_depth": 3,
+    "min_samples_leaf": 2,
+    "random_state": 42
+}
+
+param_ranges = {
+    "n_estimators": (50, 200),
+    "max_depth": (2, 10),
+    "min_samples_leaf": (1, 5)
+}
+
+# ============================================================
+# Esecuzione lambda_z test
+# ============================================================
+lambda_base, lambda_z, p_empirical, lambdas_random, lambda_threshold, overfitting_risk = \
+    lambda_z_test_random(
+        GradientBoostingRegressor,
+        base_params,
+        X,
+        y,
+        param_ranges,
+        n_random=100,
+        n_perturb=20,
+        noise_std=0.01
+    )
+
+# ============================================================
+# Output
+# ============================================================
+print(f"Lambda base: {lambda_base:.6f}")
+print(f"Lambda z-score: {lambda_z:.3f}")
+print(f"Empirical p-value: {p_empirical:.3f}")
+print(f"Lambda 95° percentile random: {lambda_threshold:.6f}")
+print(f"Rischio overfitting? {'SI' if overfitting_risk else 'NO'}")
+
+# ============================================================
+# Plot distribuzione lambda
+# ============================================================
+plt.hist(lambdas_random, bins=20, alpha=0.7, label='Random models')
+plt.axvline(lambda_base, color='red', linestyle='--', label='Base model λ')
+plt.axvline(lambda_threshold, color='green', linestyle='--', label='95° percentile')
+plt.xlabel("λ Guard")
+plt.ylabel("Frequency")
+plt.title("Lambda distribution vs Base model (Instability-based) - Diabetes dataset")
+plt.legend()
+plt.show()
+
+
+
 
