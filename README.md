@@ -102,8 +102,35 @@ Combines structural complexity and stability:
      width="600"
      style="display: block; margin: auto;" />
 
+## 6. Lambda - Overfitting Test
 
+We implements a **simulation-based test for detecting potential overfitting** in regression models using the **Output Function Instability (OFI)**, also referred to as λ (lambda).
 
+### Concept
+
+The test compares the instability of a **base model** to a set of **randomized models** with hyperparameters sampled uniformly from predefined ranges:
+
+1. **Compute λ (OFI)** for the base model:  
+   Measures model sensitivity to small perturbations in the input features.
+
+2. **Generate randomized models**:  
+   - Sample hyperparameters randomly within specified ranges.  
+   - Train each model on the same dataset and compute λ.
+
+3. **Statistical comparison**:  
+   - Calculate **empirical z-score**: how far the base model's λ is from the mean of random models.  
+   - Calculate **empirical p-value**: fraction of random models with λ ≥ base λ.  
+   - Compute **percentile thresholds** (e.g., 95th percentile) to flag potential overfitting.
+
+### Output
+
+- `lambda_base`: OFI of the base model.  
+- `lambda_z`: z-score relative to random models.  
+- `p_empirical`: empirical p-value.  
+- `lambda_threshold`: percentile-based threshold of λ.  
+- `overfitting_risk`: boolean flag indicating potential overfitting.  
+
+<img src="doc/overfitting_test.png" alt="Overfitting test" width="600"/>
 ## Geometric Interpretation
 
 1. **Matrix \(Z\)** represents the **geometric projection** of observations into leaf regions.  
