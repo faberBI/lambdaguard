@@ -104,31 +104,69 @@ Combines structural complexity and stability:
 
 ## 6. Lambda - Overfitting Test
 
-We implements a **simulation-based test for detecting potential overfitting** in regression models using the **Output Function Instability (OFI)**, also referred to as λ (lambda).
+# λ-Guard Test for Structural Overfitting
 
-### Concept
+The **λ-Guard test** detects structural overfitting in gradient boosting models **without using a test set**.  
+It analyzes how much the model relies on each training point, identifying both **global complexity** and **local memorization**.
 
-The test compares the instability of a **base model** to a set of **randomized models** with hyperparameters sampled uniformly from predefined ranges:
+---
 
-1. **Compute λ (OFI)** for the base model:  
-   Measures model sensitivity to small perturbations in the input features.
+## Overview
 
-2. **Generate randomized models**:  
-   - Sample hyperparameters randomly within specified ranges.  
-   - Train each model on the same dataset and compute λ.
+1. **Compute leverage H_ii** for each training point `i`:
+H_ii ≈ sum over trees of (learning_rate / size of leaf containing i)
 
-3. **Statistical comparison**:  
-   - Calculate **empirical z-score**: how far the base model's λ is from the mean of random models.  
-   - Calculate **empirical p-value**: fraction of random models with λ ≥ base λ.  
-   - Compute **percentile thresholds** (e.g., 95th percentile) to flag potential overfitting.
+2. **Compute observed statistics**:
 
-### Output
+- **T1 (global complexity / effective DoF ratio)**:
+T1 = mean(H_ii)
 
-- `lambda_base`: OFI of the base model.  
-- `lambda_z`: z-score relative to random models.  
-- `p_empirical`: empirical p-value.  
-- `lambda_threshold`: percentile-based threshold of λ.  
-- `overfitting_risk`: boolean flag indicating potential overfitting.  
+- **T2 (local memorization / peak leverage ratio)**:
+
+---
+
+## Bootstrap Null Distribution
+
+- Generate `B` bootstrap samples of the training set.
+- Compute T1 and T2 for each sample:
+T1_b = mean(H_ii^b)
+T2_b = max(H_ii^b) / mean(H_ii^b)
+
+- These form empirical null distributions under a **stable model** assumption.
+
+---
+
+## Hypothesis Testing
+
+- **Null hypothesis (H0):** model is structurally stable  
+- **Alternative hypothesis (H1):** model exhibits overfitting  
+
+- Compute empirical p-values:
+
+p1 = fraction of T1_b >= T1_obs
+p2 = fraction of T2_b >= T2_obs
+
+
+- **Decision:** reject H0 if `p1 < alpha OR p2 < alpha`
+
+> Either a high global complexity (T1) or a high peak leverage (T2) is enough to flag overfitting.
+
+---
+
+## Interpretation
+
+- **Mean(H_ii)** → global model complexity  
+- **Max(H_ii)/Mean(H_ii)** → local memorization  
+
+Models can be classified as:
+
+1. Stable / smooth generalization  
+2. Global overfitting / interpolation  
+3. Local memorization / spike-dominated  
+4. Extreme interpolation (both T1 and T2 high)
+
+---
+
 
 <img src="doc/overfitting_test.png" alt="Overfitting test" width="600"/>
 ## Geometric Interpretation
