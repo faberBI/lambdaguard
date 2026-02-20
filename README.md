@@ -165,9 +165,9 @@ Install via GitHub:
 pip install git+https://github.com/faberBI/lambdaguard.git
 
 from sklearn.ensemble import GradientBoostingRegressor
-from struct_overfitting.ofi import overfitting_index
-from struct_overfitting.lambda_guard import lambda_guard_test, interpret
-from struct_overfitting.cusum import detect_structural_overfitting_cusum_robust
+from lambdaguard.ofi import overfitting_index
+from lambdaguard.lambda_guard import lambda_guard_test, interpret
+from lambdaguard.cusum import detect_structural_overfitting_cusum_robust
 import pandas as pd
 
 # Fit a model
