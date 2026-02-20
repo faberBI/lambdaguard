@@ -188,6 +188,8 @@ df = pd.DataFrame([
 ])
 cusum_res = detect_structural_overfitting_cusum_robust(df, model_name="GBR")
 
+```bash
+
 📜 Citation
 
 If you use λ-Guard in your work, please cite:
