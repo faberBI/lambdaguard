@@ -1,198 +1,189 @@
-<p align="center">🛡️ λ-Guard
+<p align="center">
+  <img src="https://raw.githubusercontent.com/<your-username>/struct_overfitting/main/logo.png" width="120" alt="λ-Guard Logo"/>
+</p>
 
-Overfitting detection for Gradient Boosting — no validation set required
+<h1 align="center">🛡️ λ-Guard</h1>
 
-<i>Understand when boosting stops learning signal and starts memorizing structure.</i>
+<p align="center">
+<strong>Overfitting detection for Gradient Boosting</strong> — <em>no validation set required</em><br>
+<i>Detect the moment when your model stops learning signal and starts memorizing structure.</i>
+</p>
 
-</p>---
-
-❓ Why λ-Guard
-
-In Gradient Boosting, overfitting usually appears after the real problem has already started.
-
-Before validation error increases, the model is already:
-
-- splitting the feature space into extremely small regions
-- fitting leaves supported by very few observations
-- becoming sensitive to tiny perturbations
-
-The model is not improving prediction anymore.
-
-It is learning the shape of the training dataset.
-
-λ-Guard detects that moment.
-
----
-
-🧠 The intuition
-
-A boosting model learns two different things at the same time:
-
-Component| What it does
-Geometry| partitions the feature space
-Predictor| assigns values to each region
-
-Overfitting happens when:
-
-«the geometry keeps growing but the predictor stops gaining real information.»
-
-So λ-Guard measures three signals:
-
-- 📦 capacity → how complex the partition is
-- 🎯 alignment → how much signal is extracted
-- 🌊 stability → how fragile predictions are
+<p align="center">
+  <a href="https://github.com/<your-username>/struct_overfitting/actions/workflows/tests.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/<your-username>/struct_overfitting/tests.yml?branch=main&logo=github" alt="Tests Status">
+  </a>
+  <a href="https://pypi.org/project/struct-overfitting/">
+    <img src="https://img.shields.io/pypi/v/struct-overfitting?logo=python" alt="PyPI Version">
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT">
+  </a>
+</p>
 
 ---
 
-🧩 Representation (the key object)
+## ❓ Why λ-Guard?
 
-Every tree divides the feature space into leaves.
+In Gradient Boosting, overfitting often appears **before the validation error rises**.  
+By that point, the model is already:
 
-We record where each observation falls and build a binary matrix Z:
+- 🪵 Splitting features into extremely fine regions  
+- 🍃 Fitting leaves supported by very few observations  
+- 🌪 Sensitive to tiny perturbations  
 
-Z(i,j) = 1  if sample i falls inside leaf j
-Z(i,j) = 0  otherwise
-
-Rows → observations
-Columns → all leaves across all trees
-
-Think of Z as the representation learned by the ensemble.
-
-Linear regression → hat matrix H
-Boosting → representation matrix Z
+It’s **no longer improving predictions**, it’s **memorizing the training dataset**.  
+**λ-Guard detects that moment automatically.**
 
 ---
 
-📦 Capacity — structural complexity
+## 🧠 Core Intuition
 
-C = Var(Z)
+A boosting model learns two things simultaneously:
 
-What it means:
+| Component | Role |
+|-----------|------|
+| Geometry  | partitions the feature space |
+| Predictor | assigns values to each region |
 
-- low C → the model uses few effective regions
-- high C → the model fragments the space
+Overfitting occurs when:
 
-When boosting keeps adding trees late in training, C grows fast.
+*"Geometry keeps growing, but predictor stops extracting real information."*
 
----
+λ-Guard measures three key signals:
 
-🎯 Alignment — useful information
-
-A = Corr(f(X), y)
-
-(or equivalently the variance of predictions)
-
-- high A → trees add real predictive signal
-- low A → trees mostly refine boundaries
-
-Important behavior:
-
-«After some number of trees, alignment saturates.»
-
-Boosting continues building structure even when prediction stops improving.
+- 📦 **Capacity** → structural complexity  
+- 🎯 **Alignment** → extracted signal  
+- 🌊 **Stability** → fragility of predictions
 
 ---
 
-🌊 Instability — sensitivity to perturbations
+## 🧩 Representation Matrix
 
-We slightly perturb inputs:
+Every tree divides the feature space into **leaves**.  
+We record where each observation falls:
+Z[i,j] = 1 if sample i falls in leaf j
+Z[i,j] = 0 otherwise
 
-x' = x + ε
-ε ~ Normal(0, σ²)
+- Rows → observations  
+- Columns → leaves across all trees  
 
-and measure prediction change:
+Think of **Z** as the **representation learned by the ensemble**.
 
-S = average |f(x) − f(x')|  /  prediction_std
-
-- low S → smooth model
-- high S → brittle model
-
-This is the first thing that explodes during overfitting.
-
----
-
-🔥 The Overfitting Index
-
-λ = ( C / (A + C) ) × S
-
-Interpretation:
-
-Situation| λ
-compact structure + stable predictions| low
-many regions + weak signal| high
-unstable predictions| very high
-
-λ measures:
-
-«how much structural complexity is wasted.»
-
-(You can normalize λ to [0,1] for comparisons.)
+- Linear regression → hat matrix **H**  
+- Boosting → representation **Z**
 
 ---
 
-🧪 Structural Overfitting Test
+## 📦 Capacity — Structural Complexity
 
-We can also check if specific training points dominate the model.
+- 🔹 Low C → few effective regions  
+- 🔹 High C → model fragments space  
 
-Approximate leverage:
+Late-stage boosting **increases C quickly**, often without improving predictions.
 
+---
+
+## 🎯 Alignment — Useful Information
+
+- 🔹 High A → trees add real predictive signal  
+- 🔹 Low A → trees mostly refine boundaries  
+
+*"After some trees, alignment saturates."*  
+Boosting continues **growing structure** even if prediction stops improving.
+
+---
+
+## 🌊 Stability — Sensitivity to Perturbations
+
+- 🔹 Low S → smooth, robust model  
+- 🔹 High S → brittle, sensitive model  
+
+**Stability is the first signal to explode during overfitting.**
+
+---
+
+## 🔥 The Overfitting Index λ
+
+| Situation | λ |
+|-----------|---|
+| Compact structure + stable predictions | low |
+| Many regions + weak signal | high |
+| Unstable predictions | very high |
+
+**Interpretation:** measures how much structural complexity is wasted.  
+Normalized λ ∈ [0,1] can be used to **compare models**.
+
+
+## 🧪 Structural Overfitting Test
+
+Detect if a few training points dominate the model using **approximate leverage**:
 H_ii ≈ Σ_trees (learning_rate / leaf_size)
+T1 = mean(H_ii) # global complexity
+T2 = max(H_ii)/mean(H_ii) # local memorization
 
-This behaves like regression leverage.
 
-We compute:
+**Bootstrap procedure:**
 
-T1 = mean(H_ii)        # global complexity
-T2 = max(H_ii)/mean(H_ii)   # local memorization
-
-Bootstrap procedure
-
-repeat B times:
-    resample training data
-    recompute T1, T2
-
-p-values:
-
-p1 = P(T1_boot ≥ T1_obs)
-p2 = P(T2_boot ≥ T2_obs)
+1. Repeat B times: resample training data, recompute T1 & T2  
+2. Compute p-values:  
+   - p1 = P(T1_boot ≥ T1_obs)  
+   - p2 = P(T2_boot ≥ T2_obs)  
 
 Reject structural stability if:
 
-p1 < α  OR  p2 < α
+p1 < α OR p2 < α
+
 
 ---
 
-📊 What λ-Guard distinguishes
+## 📊 What λ-Guard Distinguishes
 
-Regime| Meaning
-✅ Stable| smooth generalization
-📈 Global overfitting| too many effective parameters
-⚠️ Local memorization| few points dominate
-💥 Extreme| interpolation behavior
-
----
-
-🧭 When to use
-
-- monitoring boosting while trees are added
-- hyperparameter tuning
-- small datasets (no validation split)
-- diagnosing late-stage performance collapse
+| Regime | Meaning |
+|--------|---------|
+| ✅ Stable | smooth generalization |
+| 📈 Global overfitting | too many effective parameters |
+| ⚠️ Local memorization | few points dominate |
+| 💥 Extreme | interpolation behavior |
 
 ---
 
-🧾 Conceptual summary
+## 🧭 When to Use
 
-Z  → learned representation
-C  → structural dimensionality
-A  → extracted signal
-S  → smoothness
-λ  → structural overfitting
-
-Overfitting = structure grows faster than information.
+- Monitor boosting during training  
+- Hyperparameter tuning  
+- Small datasets (no validation split)  
+- Diagnose late-stage performance collapse
 
 ---
 
-📜 License
+## ⚙️ Installation
 
-MIT (edit as needed)
+Install via GitHub:
+
+```bash
+pip install git+https://github.com/faberBI/lambdaguard.git
+
+from sklearn.ensemble import GradientBoostingRegressor
+from struct_overfitting.ofi import overfitting_index
+from struct_overfitting.lambda_guard import lambda_guard_test, interpret
+from struct_overfitting.cusum import detect_structural_overfitting_cusum_robust
+import pandas as pd
+
+# Fit a model
+model = GradientBoostingRegressor(n_estimators=50, max_depth=3)
+model.fit(X_train, y_train)
+
+# Compute Overfitting Index
+ofi_res = overfitting_index(model, X_train, y_train)
+
+# Lambda-guard test
+lg_res = lambda_guard_test(model, X_train)
+print(interpret(lg_res))
+
+# CUSUM-based detection
+df = pd.DataFrame([
+    {"model": "GBR", "n_estimators": 50, "max_depth": 3, "A": 0.8, "OFI_norm": 0.2},
+    {"model": "GBR", "n_estimators": 100, "max_depth": 5, "A": 0.85, "OFI_norm": 0.3},
+])
+cusum_res = detect_structural_overfitting_cusum_robust(df, model_name="GBR")
