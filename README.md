@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/faberBI/lambdaguard/doc/logo.png" width="120" alt="λ-Guard Logo"/>
+  <img src="doc/logo.png" alt="Nuvia Logo" width="160"/>
 </p>
 
 <h1 align="center">🛡️ λ-Guard</h1>
