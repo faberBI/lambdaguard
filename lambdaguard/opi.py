@@ -142,7 +142,6 @@ def plot_all_multi_model(df, metric="Gap"):
 # REGRESSION TEST
 # -----------------------------
 def regression_test(df):
-
   X = df['OFI_norm']
   y = df['Gap']
   X_const = sm.add_constant(X)
