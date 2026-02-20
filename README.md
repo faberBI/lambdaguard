@@ -196,6 +196,5 @@ If you use **λ-Guard** in your research or projects, please cite the following:
 
 **Fabrizio Di Sciorio, PhD**  
 *Universidad de Almeria — Business and Economics Department*  
-
 > "λ-Guard: Structural Overfitting Detection for Gradient Boosting Models"  
-> GitHub: [https://github.com/<your-username>/struct_overfitting](https://github.com/<your-username>/struct_overfitting)
+
