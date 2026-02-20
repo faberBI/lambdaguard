@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="doc/logo.png" alt="λ-Guard" width="160"/>
+  <img src="docs/logo.png" alt="λ-Guard" width="160"/>
 </p>
 
 <p align="center">
