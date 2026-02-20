@@ -8,11 +8,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/<your-username>/struct_overfitting/actions/workflows/tests.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/<your-username>/struct_overfitting/tests.yml?branch=main&logo=github" alt="Tests Status">
+  <a href="https://github.com/faberBI/lambdaguard/actions/workflows/tests.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/faberBI/lambdaguard/tests.yml?branch=main&logo=github" alt="Tests Status">
   </a>
-  <a href="https://pypi.org/project/struct-overfitting/">
-    <img src="https://img.shields.io/pypi/v/struct-overfitting?logo=python" alt="PyPI Version">
+  <a href="https://coveralls.io/github/faberBI/lambdaguard">
+    <img src="https://img.shields.io/coveralls/github/faberBI/lambdaguard/main.svg" alt="Coverage Status">
+  </a>
+  <a href="https://pypi.org/project/lambdaguard/">
+    <img src="https://img.shields.io/pypi/v/lambdaguard?logo=python" alt="PyPI Version">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT">
