@@ -187,3 +187,10 @@ df = pd.DataFrame([
     {"model": "GBR", "n_estimators": 100, "max_depth": 5, "A": 0.85, "OFI_norm": 0.3},
 ])
 cusum_res = detect_structural_overfitting_cusum_robust(df, model_name="GBR")
+
+📜 Citation
+
+If you use λ-Guard in your work, please cite:
+
+Fabrizio Di Sciorio, PhD
+Universidad de Almeria, Business and Economics Department
