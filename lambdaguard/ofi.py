@@ -20,42 +20,114 @@ from catboost import CatBoostRegressor
 # -----------------------------
 # GENERALIZATION COMPONENTS
 # -----------------------------
-def generalization_index_Z(model, X, y):
+def generalization_index(model, X, y):
     """
-    Calcola il Generalization Index (GI) usando la matrice Z,
-    come nella metodologia originale di λ-Guard.
+    Generalization Index (GI) universale per:
+    - XGBoost (Booster e sklearn API)
+    - LightGBM
+    - CatBoost
+    - sklearn GradientBoosting
     
-    Args:
-        model: modello di boosting addestrato (sklearn o simile)
-        X: input features (n_samples x n_features)
-        y: target
-        
     Returns:
-        GI: Generalization Index
-        A: Alignment
-        C: Capacity (varianza di Z)
+        GI, A (alignment), C (capacity)
     """
-    n = X.shape[0]
-    # Costruzione della matrice Z: binaria (osservazioni x foglie)
+    
+    # --------------------------------------------------
+    # 1️⃣ OTTENIAMO MATRICE FOGLIE (leaf_matrix)
+    # --------------------------------------------------
+    
+    leaf_matrix = None
+    preds = None
+    
+    # ----------------------------
+    # XGBOOST - Booster nativo
+    # ----------------------------
+    if hasattr(model, "predict") and hasattr(model, "get_booster") is False and "xgboost" in str(type(model)).lower():
+        try:
+            import xgboost as xgb
+            dmatrix = xgb.DMatrix(X)
+            leaf_matrix = model.predict(dmatrix, pred_leaf=True)
+            preds = model.predict(dmatrix)
+        except:
+            pass
+
+    # ----------------------------
+    # XGBOOST - sklearn API
+    # ----------------------------
+    if leaf_matrix is None and hasattr(model, "get_booster"):
+        leaf_matrix = model.apply(X)
+        preds = model.predict(X)
+
+    # ----------------------------
+    # LIGHTGBM
+    # ----------------------------
+    if leaf_matrix is None and "lightgbm" in str(type(model)).lower():
+        leaf_matrix = model.predict(X, pred_leaf=True)
+        preds = model.predict(X)
+
+    # ----------------------------
+    # CATBOOST
+    # ----------------------------
+    if leaf_matrix is None and "catboost" in str(type(model)).lower():
+        leaf_matrix = model.calc_leaf_indexes(X)
+        preds = model.predict(X)
+
+    # ----------------------------
+    # SKLEARN GradientBoosting
+    # ----------------------------
+    if leaf_matrix is None and hasattr(model, "estimators_"):
+        leaf_list = []
+        for est in model.estimators_.ravel():
+            leaf_list.append(est.apply(X))
+        leaf_matrix = np.column_stack(leaf_list)
+        preds = model.predict(X)
+
+    # Se ancora None → errore
+    if leaf_matrix is None:
+        raise ValueError("Modello non supportato per GI computation")
+
+    # --------------------------------------------------
+    # 2️⃣ GARANTIAMO MATRICE 2D
+    # --------------------------------------------------
+    leaf_matrix = np.array(leaf_matrix)
+    if leaf_matrix.ndim == 1:
+        leaf_matrix = leaf_matrix.reshape(-1, 1)
+
+    # --------------------------------------------------
+    # 3️⃣ COSTRUZIONE MATRICE Z
+    # --------------------------------------------------
     Z_cols = []
-    for est in model.estimators_.ravel():  # loop su tutti gli alberi
-        leaf_id = est.apply(X)  # foglia di ciascuna osservazione
-        # codifica binaria: ogni foglia diventa una colonna
-        unique_leaves = np.unique(leaf_id)
+
+    for t in range(leaf_matrix.shape[1]):
+        leaf_ids = leaf_matrix[:, t]
+        unique_leaves = np.unique(leaf_ids)
+
         for leaf in unique_leaves:
-            Z_cols.append((leaf_id == leaf).astype(float))
-    
-    Z = np.column_stack(Z_cols)  # matrice Z completa
-    # Capacity = varianza totale di Z
+            Z_cols.append((leaf_ids == leaf).astype(float))
+
+    if len(Z_cols) == 0:
+        return 0, 0, 0
+
+    Z = np.column_stack(Z_cols)
+
+    # --------------------------------------------------
+    # 4️⃣ CAPACITY
+    # --------------------------------------------------
     C = np.var(Z)
-    
-    # Alignment = correlazione tra predizioni e target
-    preds = model.predict(X)
+
+    # --------------------------------------------------
+    # 5️⃣ ALIGNMENT
+    # --------------------------------------------------
+    if preds is None:
+        preds = model.predict(X)
+
     A = np.corrcoef(preds, y)[0, 1] if np.std(preds) > 0 else 0
-    
-    # Generalization Index
+
+    # --------------------------------------------------
+    # 6️⃣ GENERALIZATION INDEX
+    # --------------------------------------------------
     GI = A / C if C > 0 else 0
-    
+
     return GI, A, C
 
 def instability_index(model, X, noise_std=1e-3, seed=42):
