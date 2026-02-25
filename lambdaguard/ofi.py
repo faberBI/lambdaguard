@@ -20,11 +20,42 @@ from catboost import CatBoostRegressor
 # -----------------------------
 # GENERALIZATION COMPONENTS
 # -----------------------------
-def generalization_index(model, X, y):
+def generalization_index_Z(model, X, y):
+    """
+    Calcola il Generalization Index (GI) usando la matrice Z,
+    come nella metodologia originale di λ-Guard.
+    
+    Args:
+        model: modello di boosting addestrato (sklearn o simile)
+        X: input features (n_samples x n_features)
+        y: target
+        
+    Returns:
+        GI: Generalization Index
+        A: Alignment
+        C: Capacity (varianza di Z)
+    """
+    n = X.shape[0]
+    # Costruzione della matrice Z: binaria (osservazioni x foglie)
+    Z_cols = []
+    for est in model.estimators_.ravel():  # loop su tutti gli alberi
+        leaf_id = est.apply(X)  # foglia di ciascuna osservazione
+        # codifica binaria: ogni foglia diventa una colonna
+        unique_leaves = np.unique(leaf_id)
+        for leaf in unique_leaves:
+            Z_cols.append((leaf_id == leaf).astype(float))
+    
+    Z = np.column_stack(Z_cols)  # matrice Z completa
+    # Capacity = varianza totale di Z
+    C = np.var(Z)
+    
+    # Alignment = correlazione tra predizioni e target
     preds = model.predict(X)
     A = np.corrcoef(preds, y)[0, 1] if np.std(preds) > 0 else 0
-    C = np.var(preds)
+    
+    # Generalization Index
     GI = A / C if C > 0 else 0
+    
     return GI, A, C
 
 def instability_index(model, X, noise_std=1e-3, seed=42):
