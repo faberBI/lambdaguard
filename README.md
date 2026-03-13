@@ -166,17 +166,18 @@ Install via GitHub:
 pip install git+https://github.com/faberBI/lambdaguard.git
 
 from sklearn.ensemble import GradientBoostingRegressor
-from lambdaguard.ofi import overfitting_index
+from lambdaguard.ofi import generalization_index, instability_index, 
 from lambdaguard.lambda_guard import lambda_guard_test, interpret
-from lambdaguard.cusum import detect_structural_overfitting_cusum_robust
+from lambdaguard.cusum import lambda_detect
 import pandas as pd
 
 # Fit a model
 model = GradientBoostingRegressor(n_estimators=50, max_depth=3)
 model.fit(X_train, y_train)
 
-# Compute Overfitting Index
-ofi_res = overfitting_index(model, X_train, y_train)
+# Generalization index
+GI, A, C = overfitting_index(model, X_train, y_train)
+print('Generalization index: ", GI)
 
 # Lambda-guard test
 lg_res = lambda_guard_test(model, X_train)
@@ -187,7 +188,16 @@ df = pd.DataFrame([
     {"model": "GBR", "n_estimators": 50, "max_depth": 3, "A": 0.8, "OFI_norm": 0.2},
     {"model": "GBR", "n_estimators": 100, "max_depth": 5, "A": 0.85, "OFI_norm": 0.3},
 ])
-cusum_res = detect_structural_overfitting_cusum_robust(df, model_name="GBR")
+cusum_res = lambda_detect(
+    df,
+    model_name,
+    complexity_metric="combined",
+    lambda_col="OFI_norm",
+    alignment_col="A",
+    smooth_window=3,
+    cusum_threshold_factor=1.5,
+    baseline_points=10
+)
 
 ```
 
