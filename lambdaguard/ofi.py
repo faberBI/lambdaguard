@@ -198,7 +198,7 @@ def run_experiment_multi_model(X, y, dataset_name, model_names=["GBR"],
 
             GI, A, C = generalization_index(model, X_train, y_train)
             S = instability_index(model, X_train)
-            OFI = (C / (A + C)) * S
+            OFI = (C / (A + C + 1e-8)) * S
             G_norm = A / (A + C)
 
             y_train_pred = model.predict(X_train)
