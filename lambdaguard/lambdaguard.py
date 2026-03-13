@@ -50,9 +50,9 @@ def lambda_guard_test(model, X, B=300, alpha=0.05, plot=True):
 
 def interpret(res):
     if not res["reject_H0"]:
-        return "✔ REGIME STABILE / GENERALIZZANTE"
+        return "✔ STABLE REGIME"
     if res["p_df_ratio"] < 0.05 and res["p_peak_ratio"] < 0.05:
-        return "✖ REGIME INTERPOLANTE (OVERFITTING FORTE)"
+        return "✖ OVERFITTING"
     if res["p_df_ratio"] < 0.05:
-        return "✖ COMPLESSITÀ GLOBALE ECCESSIVA"
+        return "✖ HIGH COMPLEXITY"
     return "✖ (LEVERAGE SPIKES)"
