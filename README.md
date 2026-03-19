@@ -167,7 +167,7 @@ pip install git+https://github.com/faberBI/lambdaguard.git
 
 from sklearn.ensemble import GradientBoostingRegressor
 from lambdaguard.ofi import generalization_index, instability_index, create_model
-from lambdaguard.lambda_guard import lambda_guard_test, interpret
+from lambdaguard.lambdaguard import lambda_guard_test, interpret
 from lambdaguard.cusum import lambda_detect
 import pandas as pd
 
